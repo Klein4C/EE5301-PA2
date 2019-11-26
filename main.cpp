@@ -235,44 +235,61 @@ int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vec
         }
     }
 
-    for (int k=0; k<blk_amt; k++)
-    {
-        cout<<"BLK["<<k<<"]:"<<endl;
-        cout<<"up: ";
-        for (int i=0; i<blkLib[k].up.size(); i++)
-        {
-            cout<<blkLib[k].up[i]->getNum()<<" ";
-        }
-        cout<<"\ndown: ";
-        for (int i=0; i<blkLib[k].down.size(); i++)
-        {
-            cout<<blkLib[k].down[i]->getNum()<<" ";
-        }
-        cout<<"\nleft: ";
-        for (int i=0; i<blkLib[k].left.size(); i++)
-        {
-            cout<<blkLib[k].left[i]->getNum()<<" ";
-        }
-        cout<<"\nright: ";
-        for (int i=0; i<blkLib[k].right.size(); i++)
-        {
-            cout<<blkLib[k].right[i]->getNum()<<" ";
-        }
-        cout<<"\n"<<endl;
-    }
+    // for (int k=0; k<blk_amt; k++)
+    // {
+    //     cout<<"BLK["<<k<<"]:"<<endl;
+    //     cout<<"up: ";
+    //     for (int i=0; i<blkLib[k].up.size(); i++)
+    //     {
+    //         cout<<blkLib[k].up[i]->getNum()<<" ";
+    //     }
+    //     cout<<"\ndown: ";
+    //     for (int i=0; i<blkLib[k].down.size(); i++)
+    //     {
+    //         cout<<blkLib[k].down[i]->getNum()<<" ";
+    //     }
+    //     cout<<"\nleft: ";
+    //     for (int i=0; i<blkLib[k].left.size(); i++)
+    //     {
+    //         cout<<blkLib[k].left[i]->getNum()<<" ";
+    //     }
+    //     cout<<"\nright: ";
+    //     for (int i=0; i<blkLib[k].right.size(); i++)
+    //     {
+    //         cout<<blkLib[k].right[i]->getNum()<<" ";
+    //     }
+    //     cout<<"\n"<<endl;
+    // }
     // ========finding critical path========
     Block dummyBottom;
+    Block dummyTop;
     Block dummyLeft;
+    Block dummyRight;
     for (int i=0; i<blk_amt; i++)
     {
         if (blkLib[i].down.size()==0)
         {
             dummyBottom.up.push_back(&blkLib[i]);
         }
+        if (blkLib[i].up.size()==0)
+        {
+            dummyTop.down.push_back(&blkLib[i]);
+        }
         if (blkLib[i].left.size()==0)
         {
             dummyLeft.right.push_back(&blkLib[i]);
         }
+        if (blkLib[i].right.size()==0)
+        {
+            dummyRight.left.push_back(&blkLib[i]);
+        }
     }
-
+    cout<<"____PUSH UP____"<<endl;
+    dummyBottom.pushUp();
+    // cout<<"____PUSH DN____"<<endl;
+    // dummyTop.pushDn();
+    cout<<"____PUSH RT____"<<endl;
+    dummyLeft.pushRt();
+    // cout<<"____PUSH LF____"<<endl;
+    // dummyRight.pushLf();
 }

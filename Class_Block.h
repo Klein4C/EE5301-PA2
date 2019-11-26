@@ -25,10 +25,10 @@ class Block
         // Block *pathToVer;
         // Block *pathToHor;
         void direction(bool beforeP, bool beforeN, Block *targetBlk);
-        void pushUp(int level);
-        // void pushDn();
-        // void pushLf();
-        void pushRt(int level);
+        void pushUp();
+        void pushDn();
+        void pushLf();
+        void pushRt();
     private:
         unsigned int blk_num;
         unsigned int blk_height=0;
@@ -136,68 +136,81 @@ void Block::direction(bool beforeP, bool beforeN, Block *targetBlk)
     
 }
 
-void Block::pushUp(int level)
+void Block::pushUp()
 {
-    blk_height = level;
     if (up.size()>0)
     {
-        int local_max_h=0;
         for (int i=0; i<up.size(); i++)
         {
-            if (up[i]->getHeight()>local_max_h)
-                local_max_h = up[i]->getHeight();
+            if (bottomLeft_y+blk_height > up[i]->getLLy())
+            {
+                cout<<blk_num<<" pushes "<<up[i]->blk_num<<" up to "<<bottomLeft_y+blk_height<<endl;
+                up[i]->setLL(up[i]->getLLx(), bottomLeft_y+blk_height);
+            }
         }
         for (int i=0; i<up.size(); i++)
         {
-            up[i]->pushUp(level+local_max_h);
+            up[i]->pushUp();
         }
     }
 }
 
-void Block::pushRt(int level)
+void Block::pushRt()
 {
     if (right.size()>0)
     {
         for (int i=0; i<right.size(); i++)
         {
-            if (right[i]->getLLx() < bottomLeft_x+blk_width)
+            if (bottomLeft_x+blk_width > right[i]->getLLx())
             {
-                right[i]->setLL(bottomLeft_x+blk_width, right[i]->getLLx());
-                right[i]->pushRt();
+                cout<<blk_num<<" pushes "<<right[i]->blk_num<<" right to "<<bottomLeft_x+blk_width<<endl;
+                right[i]->setLL(bottomLeft_x+blk_width, right[i]->getLLy());
             }
+        }
+        for (int i=0; i<right.size(); i++)
+        {
+            right[i]->pushRt();
         }
     }
 }
 
-// void Block::pushDn()
-// {
-//     if (down.size()>0)
-//     {
-//         for (int i=0; i<down.size(); i++)
-//         {
-//             if (down[i]->getLLy()+down[i]->getHeight() > bottomLeft_y)
-//             {
-//                 down[i]->setLL(down[i]->getLLx(), bottomLeft_y-down[i]->getHeight());
-//                 down[i]->pushDn();
-//             }
-//         }
-//     }
-// }
+void Block::pushDn()
+{
+    if (down.size()>0)
+    {
+        for (int i=0; i<down.size(); i++)
+        {
+            if (down[i]->getLLy()+down[i]->getHeight() > bottomLeft_y)
+            {
+                cout<<blk_num<<" pushes "<<down[i]->blk_num<<" down to "<<(bottomLeft_y-down[i]->getHeight())<<endl;
+                down[i]->setLL(down[i]->getLLx(), bottomLeft_y-down[i]->getHeight());
+            }
+        }
+        for (int i=0; i<down.size(); i++)
+        {
+            down[i]->pushDn();
+        }
+    }
+}
 
-// void Block::pushLf()
-// {
-//     if (left.size()>0)
-//     {
-//         for (int i=0; i<left.size(); i++)
-//         {
-//             if (left[i]->getLLx()+left[i]->getWidth() > bottomLeft_x)
-//             {
-//                 left[i]->setLL(bottomLeft_x-left[i]->getWidth(), left[i]->getLLx());
-//                 left[i]->pushLf();
-//             }
-//         }
-//     }
-// }
+void Block::pushLf()
+{
+    if (left.size()>0)
+    {
+        for (int i=0; i<left.size(); i++)
+        {
+            if (left[i]->getLLx()+left[i]->getWidth() > bottomLeft_x)
+            {
+                cout<<blk_num<<" pushes "<<left[i]->blk_num<<" left to "<<(bottomLeft_x-left[i]->getWidth())<<endl;
+                left[i]->setLL(bottomLeft_x-left[i]->getWidth(), left[i]->getLLy());
+            }
+        }
+        for (int i=0; i<left.size(); i++)
+        {
+            left[i]->pushLf();
+        }
+    }
+}
 
 
 
