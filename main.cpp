@@ -5,12 +5,16 @@
 #include <iterator>
 // #include <stdio.h>
 #include <vector>
+// #include <array>
+#include <algorithm> //for shuffle
+#include <chrono> // sys time
 
 #include "Class_Block.h"
 
 using namespace std;
 
-int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib);
+int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib, int &blk_amt);
+int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vector<unsigned int> &seqN, int &max_h, int &max_w);
 
 int main(int argc, char* argv[])
 {
@@ -22,15 +26,26 @@ int main(int argc, char* argv[])
 
     vector<Block> blkLib;
     vector<Net> netLib;
-    int fileStat = readFile(argv[1], blkLib, netLib);
+    // vector<unsigned int> seqP;
+    // vector<unsigned int> seqN;
+    vector<unsigned int> seqP{4,2,1,8,5,9,0,6,3,7};
+    vector<unsigned int> seqN{9,7,6,3,1,4,2,5,8,0};
+    int max_h;
+    int max_w;
+    int blk_n = 0;
+    int fileStat = readFile(argv[1], blkLib, netLib, blk_n);
     if (fileStat != 0)
         return fileStat;
     
-    // cout<<"------Blocks------"<<endl;
-    // for (vector<Block>::iterator itr=blkLib.begin(); itr!=blkLib.end(); itr++)
-    // {
-    //     cout<<itr->getNum()<<" "<<itr->getWidth()<<" "<<itr->getHeight()<<endl;
-    // }
+    randGen(blkLib, blk_n, seqP, seqN, max_h, max_w);
+
+    // ========call out all blocks========
+    cout<<"------Blocks------"<<endl;
+    for (vector<Block>::iterator itr=blkLib.begin(); itr!=blkLib.end(); itr++)
+    {
+        cout<<itr->getNum()<<" "<<itr->getWidth()<<" "<<itr->getHeight()<<" ";
+        cout<<"x@"<<itr->getLLx()<<" y@"<<itr->getLLy()<<endl;
+    }
     // cout<<"\n------Nets------"<<endl;
     // for (vector<Net>::iterator itr=netLib.begin(); itr!=netLib.end(); itr++)
     // {
@@ -45,7 +60,7 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib)
+int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib, int &blk_amt)
 {
     char lineBuf[1024];
     ifstream ifs(fName);
@@ -68,6 +83,7 @@ int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib)
         unsigned int firstNum;  // blk amount number
         iss >> firstNum;
         blkAmt = firstNum; // get blk amount number
+        blk_amt = firstNum;
 
         for (unsigned int i=0; i<blkAmt; i++)
         {
@@ -151,3 +167,112 @@ int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib)
     return 0;
 }
 
+int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vector<unsigned int> &seqN, int &max_h, int &max_w)
+{
+    for (int i=0; i<blk_amt; i++)
+    {
+        seqP.push_back(i);
+        seqN.push_back(i);
+    }
+
+    // ========random sequencing========
+    // unsigned int seed = chrono::system_clock::now().time_since_epoch().count();
+    // shuffle(seqP.begin(), seqP.end(), default_random_engine(seed));
+    // seed = chrono::system_clock::now().time_since_epoch().count();
+    // shuffle(seqN.begin(), seqN.end(), default_random_engine(seed));
+
+    // ========call out sequence values========
+    cout<<"P seq: ";
+    for (int i=0; i<blk_amt; i++)
+    {
+        cout<<seqP[i]<<" ";
+    }
+    cout<<"\nN seq: ";
+    for (int i=0; i<blk_amt; i++)
+    {
+        cout<<seqN[i]<<" ";
+    }
+    cout<<endl;
+
+    // ========storing relative position========
+    bool beforeP = true;
+    bool beforeN = true;
+    for (int blk_idx=0; blk_idx<blk_amt; blk_idx++)
+    {
+        beforeP = true;
+        // cout<<"["<<blk_idx<<"]:----------------"<<endl;
+        for (int idxp=0; idxp<blk_amt; idxp++)
+        {
+            if (seqP[idxp]==blk_idx)
+            {
+                // cout<<"<<"<<seqP[idxp]<<"="<<blk_idx<<endl;
+                beforeP = false;
+                continue;
+            }
+            beforeN = true;
+            for (int idxn=0; idxn<blk_amt; idxn++)
+            {
+                if (seqN[idxn]==blk_idx)
+                {
+                    beforeN = false;
+                    continue;
+                }
+                if (seqP[idxp]==seqN[idxn])
+                {
+                    // cout<<"BLK["<<blk_idx<<"]";
+                    blkLib[blk_idx].direction(beforeP, beforeN, &blkLib[seqP[idxp]]);
+                    // cout<<" <"<<!beforeP<<","<<!beforeN<<"> ("<<idxp<<","<<idxn<<")"<<endl;
+                    // cout<<seqP[idxp]<<"  ";
+
+                    // for (int k=0; k<blk_amt; k++)
+                    // {
+                    //     cout<<"\n["<<k<<"]"<<"@"<<blkLib[k].getLLx()<<"~"<<blkLib[k].getLLy();
+                    // }
+                    // cout<<endl;
+                    break;
+                }
+            }
+        }
+    }
+
+    for (int k=0; k<blk_amt; k++)
+    {
+        cout<<"BLK["<<k<<"]:"<<endl;
+        cout<<"up: ";
+        for (int i=0; i<blkLib[k].up.size(); i++)
+        {
+            cout<<blkLib[k].up[i]->getNum()<<" ";
+        }
+        cout<<"\ndown: ";
+        for (int i=0; i<blkLib[k].down.size(); i++)
+        {
+            cout<<blkLib[k].down[i]->getNum()<<" ";
+        }
+        cout<<"\nleft: ";
+        for (int i=0; i<blkLib[k].left.size(); i++)
+        {
+            cout<<blkLib[k].left[i]->getNum()<<" ";
+        }
+        cout<<"\nright: ";
+        for (int i=0; i<blkLib[k].right.size(); i++)
+        {
+            cout<<blkLib[k].right[i]->getNum()<<" ";
+        }
+        cout<<"\n"<<endl;
+    }
+    // ========finding critical path========
+    Block dummyBottom;
+    Block dummyLeft;
+    for (int i=0; i<blk_amt; i++)
+    {
+        if (blkLib[i].down.size()==0)
+        {
+            dummyBottom.up.push_back(&blkLib[i]);
+        }
+        if (blkLib[i].left.size()==0)
+        {
+            dummyLeft.right.push_back(&blkLib[i]);
+        }
+    }
+
+}
