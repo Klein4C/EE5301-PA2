@@ -14,7 +14,7 @@
 using namespace std;
 
 int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib, int &blk_amt);
-int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vector<unsigned int> &seqN, int &max_h, int &max_w);
+int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vector<unsigned int> &seqN, int &max_w, int &max_h);
 
 int main(int argc, char* argv[])
 {
@@ -26,36 +26,56 @@ int main(int argc, char* argv[])
 
     vector<Block> blkLib;
     vector<Net> netLib;
+    // NOTE: please use the non-initialized vectors instead to implmt randomness
     // vector<unsigned int> seqP;
     // vector<unsigned int> seqN;
     vector<unsigned int> seqP{4,2,1,8,5,9,0,6,3,7};
     vector<unsigned int> seqN{9,7,6,3,1,4,2,5,8,0};
-    int max_h;
-    int max_w;
+    int max_h=0;
+    int max_w=0;
     int blk_n = 0;
     int fileStat = readFile(argv[1], blkLib, netLib, blk_n);
     if (fileStat != 0)
         return fileStat;
     
-    randGen(blkLib, blk_n, seqP, seqN, max_h, max_w);
+    randGen(blkLib, blk_n, seqP, seqN, max_w, max_h);
 
     // ========call out all blocks========
+
+    // call out sequence values
+    cout<<"P seq: ";
+    for (int i=0; i<blk_n; i++)
+    {
+        cout<<seqP[i]<<" ";
+    }
+    cout<<"\nN seq: ";
+    for (int i=0; i<blk_n; i++)
+    {
+        cout<<seqN[i]<<" ";
+    }
+    cout<<endl;
+    // call out dimensions and area
+    cout<<"Chip Dimension(WxH): "<<max_w<<" "<<max_h<<endl;
+    long int A = max_w*max_h;
+    cout<<"Chip Area: "<<A<<endl;
+    // call out blocks with coordinations
     cout<<"------Blocks------"<<endl;
     for (vector<Block>::iterator itr=blkLib.begin(); itr!=blkLib.end(); itr++)
     {
-        cout<<itr->getNum()<<" "<<itr->getWidth()<<" "<<itr->getHeight()<<" ";
+        cout<<"NO."<<itr->getNum()<<" "<<itr->getWidth()<<" "<<itr->getHeight()<<" ";
         cout<<"x@"<<itr->getLLx()<<" y@"<<itr->getLLy()<<endl;
     }
-    // cout<<"\n------Nets------"<<endl;
-    // for (vector<Net>::iterator itr=netLib.begin(); itr!=netLib.end(); itr++)
-    // {
-    //     cout<<itr->getNum()<<" "<<itr->getDeg();
-    //     for (unsigned int k=0; k<itr->getDeg(); k++)
-    //     {
-    //         cout<<" "<<itr->connBlks[k];
-    //     }
-    //     cout<<endl;
-    // }
+    // call out nets
+    cout<<"\n------Nets------"<<endl;
+    for (vector<Net>::iterator itr=netLib.begin(); itr!=netLib.end(); itr++)
+    {
+        cout<<itr->getNum()<<" "<<itr->getDeg();
+        for (unsigned int k=0; k<itr->getDeg(); k++)
+        {
+            cout<<" "<<itr->connBlks[k];
+        }
+        cout<<endl;
+    }
 
     return 0;
 }
@@ -167,7 +187,7 @@ int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib, int &blk_a
     return 0;
 }
 
-int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vector<unsigned int> &seqN, int &max_h, int &max_w)
+int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vector<unsigned int> &seqN, int &max_w, int &max_h)
 {
     for (int i=0; i<blk_amt; i++)
     {
@@ -176,23 +196,13 @@ int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vec
     }
 
     // ========random sequencing========
+    // NOTE: please uncomment the following code block to really implementing randomness
     // unsigned int seed = chrono::system_clock::now().time_since_epoch().count();
     // shuffle(seqP.begin(), seqP.end(), default_random_engine(seed));
     // seed = chrono::system_clock::now().time_since_epoch().count();
     // shuffle(seqN.begin(), seqN.end(), default_random_engine(seed));
 
-    // ========call out sequence values========
-    cout<<"P seq: ";
-    for (int i=0; i<blk_amt; i++)
-    {
-        cout<<seqP[i]<<" ";
-    }
-    cout<<"\nN seq: ";
-    for (int i=0; i<blk_amt; i++)
-    {
-        cout<<seqN[i]<<" ";
-    }
-    cout<<endl;
+
 
     // ========storing relative position========
     bool beforeP = true;
@@ -219,16 +229,7 @@ int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vec
                 }
                 if (seqP[idxp]==seqN[idxn])
                 {
-                    // cout<<"BLK["<<blk_idx<<"]";
                     blkLib[blk_idx].direction(beforeP, beforeN, &blkLib[seqP[idxp]]);
-                    // cout<<" <"<<!beforeP<<","<<!beforeN<<"> ("<<idxp<<","<<idxn<<")"<<endl;
-                    // cout<<seqP[idxp]<<"  ";
-
-                    // for (int k=0; k<blk_amt; k++)
-                    // {
-                    //     cout<<"\n["<<k<<"]"<<"@"<<blkLib[k].getLLx()<<"~"<<blkLib[k].getLLy();
-                    // }
-                    // cout<<endl;
                     break;
                 }
             }
@@ -260,6 +261,7 @@ int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vec
     //     }
     //     cout<<"\n"<<endl;
     // }
+
     // ========finding critical path========
     Block dummyBottom;
     Block dummyTop;
@@ -284,12 +286,28 @@ int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vec
             dummyRight.left.push_back(&blkLib[i]);
         }
     }
-    cout<<"____PUSH UP____"<<endl;
+    // cout<<"____PUSH UP____"<<endl;
     dummyBottom.pushUp();
     // cout<<"____PUSH DN____"<<endl;
     // dummyTop.pushDn();
-    cout<<"____PUSH RT____"<<endl;
+    // cout<<"____PUSH RT____"<<endl;
     dummyLeft.pushRt();
     // cout<<"____PUSH LF____"<<endl;
     // dummyRight.pushLf();
+
+    // ========extract max dimensions========
+    // int x_min=0, x_max=0, y_min=0, y_max=0;
+    for (int i=0; i<blk_amt; i++)
+    {
+        if (blkLib[i].getLLx()+blkLib[i].getWidth() > max_w)
+        {
+            max_w = blkLib[i].getLLx()+blkLib[i].getWidth();
+            cout<<"new W: "<<max_w<<" from "<<i<<endl;
+        }
+        if (blkLib[i].getLLy()+blkLib[i].getHeight() > max_h)
+        {
+            max_h = blkLib[i].getLLy()+blkLib[i].getHeight();
+            cout<<"new H: "<<max_h<<" from "<<i<<endl;
+        }
+    }
 }

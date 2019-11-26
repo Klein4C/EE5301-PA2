@@ -144,7 +144,7 @@ void Block::pushUp()
         {
             if (bottomLeft_y+blk_height > up[i]->getLLy())
             {
-                cout<<blk_num<<" pushes "<<up[i]->blk_num<<" up to "<<bottomLeft_y+blk_height<<endl;
+                // cout<<blk_num<<" pushes "<<up[i]->blk_num<<" up to "<<bottomLeft_y+blk_height<<endl;
                 up[i]->setLL(up[i]->getLLx(), bottomLeft_y+blk_height);
             }
         }
@@ -163,7 +163,7 @@ void Block::pushRt()
         {
             if (bottomLeft_x+blk_width > right[i]->getLLx())
             {
-                cout<<blk_num<<" pushes "<<right[i]->blk_num<<" right to "<<bottomLeft_x+blk_width<<endl;
+                // cout<<blk_num<<" pushes "<<right[i]->blk_num<<" right to "<<bottomLeft_x+blk_width<<endl;
                 right[i]->setLL(bottomLeft_x+blk_width, right[i]->getLLy());
             }
         }
@@ -182,7 +182,7 @@ void Block::pushDn()
         {
             if (down[i]->getLLy()+down[i]->getHeight() > bottomLeft_y)
             {
-                cout<<blk_num<<" pushes "<<down[i]->blk_num<<" down to "<<(bottomLeft_y-down[i]->getHeight())<<endl;
+                // cout<<blk_num<<" pushes "<<down[i]->blk_num<<" down to "<<(bottomLeft_y-down[i]->getHeight())<<endl;
                 down[i]->setLL(down[i]->getLLx(), bottomLeft_y-down[i]->getHeight());
             }
         }
@@ -201,7 +201,7 @@ void Block::pushLf()
         {
             if (left[i]->getLLx()+left[i]->getWidth() > bottomLeft_x)
             {
-                cout<<blk_num<<" pushes "<<left[i]->blk_num<<" left to "<<(bottomLeft_x-left[i]->getWidth())<<endl;
+                // cout<<blk_num<<" pushes "<<left[i]->blk_num<<" left to "<<(bottomLeft_x-left[i]->getWidth())<<endl;
                 left[i]->setLL(bottomLeft_x-left[i]->getWidth(), left[i]->getLLy());
             }
         }
