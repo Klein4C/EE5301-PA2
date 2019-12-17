@@ -16,28 +16,30 @@ class Block
         void setLL(int x, int y);
         int getLLx();
         int getLLy();
-        vector<Block*> left;
-        vector<Block*> right;
-        vector<Block*> up;
-        vector<Block*> down;
+        vector<Block*> left;  // [RST]
+        vector<Block*> right; // [RST]
+        vector<Block*> up; // [RST]
+        vector<Block*> down; // [RST]
         void direction(bool beforeP, bool beforeN, Block *targetBlk);
         unsigned int pNum;
         unsigned int nNum;
+        vector<int> connNetIdxs;
         // ----for topological/DFS
-        int DFSstateUp = -1; // -1:not visited  0:visiting 1:visited
-        Block* DFSpredUp = NULL;
-        int dUp = -1; // discovery time
-        int fUp = -1; // finish time
-        int DFSstateRt = -1; // -1:not visited  0:visiting 1:visited
-        Block* DFSpredRt = NULL;
-        int dRt = -1; // discovery time
-        int fRt = -1; // finish time
+        int DFSstateUp = -1; // -1:not visited  0:visiting 1:visited [RST]
+        Block* DFSpredUp = NULL; // [RST]
+        int dUp = -1; // discovery time [RST]
+        int fUp = -1; // finish time [RST]
+        int DFSstateRt = -1; // -1:not visited  0:visiting 1:visited [RST]
+        Block* DFSpredRt = NULL; // [RST]
+        int dRt = -1; // discovery time [RST]
+        int fRt = -1; // finish time [RST]
+        void resetState();
     private:
         unsigned int blk_num;
         unsigned int blk_height=0;
         unsigned int blk_width=0;
-        int bottomLeft_x=0;
-        int bottomLeft_y=0;
+        int bottomLeft_x=0; // [RST]
+        int bottomLeft_y=0; // [RST]
 };
 
 class Net
@@ -47,10 +49,19 @@ class Net
         unsigned int getNum();
         unsigned int setDeg(unsigned int newDeg);
         unsigned int getDeg();
-        vector<unsigned int> connBlks;
+        vector<unsigned int> connBlkIdxs;
+        long int refreshHPWL(vector<Block> blkLib);
+        void resetHPWL();
+        long int getHPWL();
     private:
         unsigned int net_num;
         unsigned int net_degree;
+        long int net_hpwl = 0;
+        long int hpwlLLx;
+        long int hpwlLLy;
+        long int hpwlURx;
+        long int hpwlURy;
+
 };
 
 // ==========Function Implementation Blk==========
@@ -135,6 +146,23 @@ void Block::direction(bool beforeP, bool beforeN, Block *targetBlk)
     
 }
 
+void Block::resetState()
+{
+    left.clear();
+    right.clear();
+    up.clear();
+    down.clear();
+    DFSstateUp = -1; // -1:not visited  0:visiting 1:visited
+    DFSpredUp = NULL;
+    dUp = -1; // discovery time
+    fUp = -1; // finish time
+    DFSstateRt = -1; // -1:not visited  0:visiting 1:visited
+    DFSpredRt = NULL;
+    dRt = -1; // discovery time
+    fRt = -1; // finish time
+    bottomLeft_x=0;
+    bottomLeft_y=0;
+}
 
 
 // ----------Net Class----------
@@ -159,5 +187,41 @@ unsigned int Net::getDeg()
 {
     return net_degree;
 }
+
+long int Net::refreshHPWL(vector<Block> blkLib)
+{
+    // cout<<endl;
+    hpwlLLx = 30000;
+    hpwlLLy = 30000;
+    hpwlURx = 0;
+    hpwlURy = 0;
+    for (int i=0; i<connBlkIdxs.size(); i++)
+    {
+        // cout<<"net-conn-blk["<<blkLib[connBlkIdxs[i]].getNum()<<"]"<<endl;
+        long int centerX = blkLib[connBlkIdxs[i]].getLLx()+blkLib[connBlkIdxs[i]].getWidth()/2;
+        // cout<<"  Cx:"<<centerX;
+        long int centerY = blkLib[connBlkIdxs[i]].getLLy()+blkLib[connBlkIdxs[i]].getHeight()/2;
+        // cout<<"  Cy:"<<centerY<<endl;
+        hpwlLLx = (centerX<hpwlLLx) ? centerX:hpwlLLx;
+        hpwlLLy = (centerY<hpwlLLy) ? centerY:hpwlLLy;
+        hpwlURx = (centerX<hpwlURx) ? hpwlURx:centerX;
+        hpwlURy = (centerX<hpwlURy) ? hpwlURy:centerY;
+        // cout<<"  ->"<<hpwlLLx<<","<<hpwlLLy<<"  "<<hpwlURx<<","<<hpwlURy<<endl;
+    }
+    net_hpwl = (hpwlURx-hpwlLLx) + (hpwlURy-hpwlLLy);
+    // cout<<" --net["<<net_num<<"].HPWL==>"<<net_hpwl<<endl;
+    return net_hpwl;
+}
+
+void Net::resetHPWL()
+{
+    net_hpwl = 0;
+}
+
+long int Net::getHPWL()
+{
+    return net_hpwl;
+}
+
 
 #endif

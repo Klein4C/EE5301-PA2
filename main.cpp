@@ -8,53 +8,105 @@
 // #include <array>
 #include <algorithm> //for shuffle
 #include <chrono> // sys time
+#include <math.h>
+#include <typeinfo>
 
 #include "Class_Block.h"
 
 using namespace std;
+#define K 0.95
+#define T0 40000.0
+#define Tfreez 0.1
+#define movPerTemp 10
 
 int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib, int &blk_amt);
-int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vector<unsigned int> &seqN, int &max_w, int &max_h);
+int plot(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vector<unsigned int> &seqN, int &max_w, int &max_h);
 void DFSvisit(vector<Block> &blkLib, Block &targetBlk, int &timeStamp, vector<Block*> &Q, bool directUp); // directUp= 1:up  0:right
+double getCost(int Area, int WL, double alpha);
+bool acceptMove(int dCost, double T);
+double coolDown(double prevT);
 
 int main(int argc, char* argv[])
 {
-    if (argc != 2)
+    if (argc != 3)
     {
-        cout<<"---->CRITICAL ERROR: need one ARG imput file"<<endl;
+        cout<<"---->CRITICAL ERROR: file-name and mode-option needed"<<endl;
+        return -1;
+    }
+    cout<<typeid(decltype((string)argv[2])).name()<<": "<<argv[2]<<endl;
+    if (((string)argv[2]!="-a") && ((string)argv[2]!="-w") && ((string)argv[2]!="-c"))
+    {
+        cout<<"---->CRITICAL ERROR: unknown mode-option"<<endl;
         return -2;
+    }
+    double alpha;
+    switch (argv[2][1])
+    {
+    case 'a':
+        alpha = 1.0;
+        break;
+    case 'w':
+        alpha = 0.0;
+        break;
+    case 'c':
+        alpha = 0.5;
+        break;
+    default:
+        break;
     }
 
     vector<Block> blkLib;
     vector<Net> netLib;
-    // NOTE: please use the non-initialized vectors instead to implmt randomness
-    vector<unsigned int> seqP;
-    vector<unsigned int> seqN;
-    // vector<unsigned int> seqP{4,2,1,8,5,9,0,6,3,7};
-    // vector<unsigned int> seqN{9,7,6,3,1,4,2,5,8,0};
     int max_h=0;
     int max_w=0;
+    long int Area=0;
+    long int WL=0;
+    int prevMax_h=0;
+    int prevMax_w=0;
+    long int prevArea=0;
+    long int prevWL=0;
+    double cost;
+    double prevCost;
+    double T = T0;
     int blk_n = 0;
     int fileStat = readFile(argv[1], blkLib, netLib, blk_n);
     if (fileStat != 0)
         return fileStat;
     
-    randGen(blkLib, blk_n, seqP, seqN, max_w, max_h);
+    // ----------------================randomSequencing================----------
+    // --------NOTE: please use the non-initialized vectors instead to implmt randomness
+    vector<unsigned int> seqP;
+    vector<unsigned int> seqN;
+    // vector<unsigned int> seqP{4,2,1,8,5,9,0,6,3,7};
+    // vector<unsigned int> seqN{9,7,6,3,1,4,2,5,8,0};
+    for (int i=0; i<blk_n; i++)
+    {
+        seqP.push_back(i);
+        seqN.push_back(i);
+    }
+    // --------NOTE: please uncomment the following code block to really implementing randomness
+    unsigned int seed = chrono::system_clock::now().time_since_epoch().count();
+    shuffle(seqP.begin(), seqP.end(), default_random_engine(seed));
+    seed = chrono::system_clock::now().time_since_epoch().count();
+    shuffle(seqN.begin(), seqN.end(), default_random_engine(seed));
+    // ----------------================calc init rand blk pos================---
+    plot(blkLib, blk_n, seqP, seqN, max_w, max_h);
 
+    // ----------------================outputing================----------------
     // ========call out all blocks========
     string outputName = (string)argv[1]+"_Li_Chengzhe.out1";
     cout<<">>>Opening output file: "<<outputName<<endl;
     ofstream outFile(outputName);
     // --------call out sequence values--------
-    cout<<"P seq: ";
-    outFile<<"P seq: ";
+    cout<<"Init P seq: ";
+    outFile<<"Init P seq: ";
     for (int i=0; i<blk_n; i++)
     {
         cout<<seqP[i]<<" ";
         outFile<<seqP[i]<<" ";
     }
-    cout<<"\nN seq: ";
-    outFile<<"\nN seq: ";
+    cout<<"\nInit N seq: ";
+    outFile<<"\nInit N seq: ";
     for (int i=0; i<blk_n; i++)
     {
         cout<<seqN[i]<<" ";
@@ -63,40 +115,194 @@ int main(int argc, char* argv[])
     cout<<endl;
     outFile<<endl;
     // --------call out dimensions and area--------
-    cout<<"Chip Dimension(WxH): "<<max_w<<" "<<max_h<<endl;
-    outFile<<"Chip Dimension(WxH): "<<max_w<<" "<<max_h<<endl;
-    long int A = max_w*max_h;
-    cout<<"Chip Area: "<<A<<endl;
-    outFile<<"Chip Area: "<<A<<endl;
+    cout<<"Init Chip Dimension(WxH): "<<max_w<<" "<<max_h<<endl;
+    outFile<<"Init Chip Dimension(WxH): "<<max_w<<" "<<max_h<<endl;
+    Area = max_w*max_h;
+    cout<<"Init Chip Area: "<<Area<<endl;
+    outFile<<"Init Chip Area: "<<Area<<endl;
     // --------call out blocks with coordinations--------
-    cout<<"------Blocks------"<<endl;
+    // cout<<"------Blocks------"<<endl;
     outFile<<"------Blocks------"<<endl;
     for (vector<Block>::iterator itr=blkLib.begin(); itr!=blkLib.end(); itr++)
     {
-        cout<<"NO."<<itr->getNum()<<" "<<itr->getWidth()<<" "<<itr->getHeight()\
-        <<" x@"<<itr->getLLx()<<" y@"<<itr->getLLy()<<endl;
+        // cout<<"NO."<<itr->getNum()<<" "<<itr->getWidth()<<" "<<itr->getHeight()\
+            // <<" x@"<<itr->getLLx()<<" y@"<<itr->getLLy()<<endl;
         outFile<<"NO."<<itr->getNum()<<" "<<itr->getWidth()<<" "<<itr->getHeight()\
-        <<" x@"<<itr->getLLx()<<" y@"<<itr->getLLy()<<endl;
+            <<" x@"<<itr->getLLx()<<" y@"<<itr->getLLy()<<endl;
     }
     // --------call out nets--------
-    // cout<<"\n------Nets------"<<endl;
-    // outFile<<"\n------Nets------"<<endl;
-    // for (vector<Net>::iterator itr=netLib.begin(); itr!=netLib.end(); itr++)
+    WL=0;
+    // for (int i=0; i<netLib.size(); i++)
     // {
-    //     cout<<"NO."<<itr->getNum()<<" "<<itr->getDeg();
-    //     outFile<<"NO."<<itr->getNum()<<" "<<itr->getDeg();
-    //     for (unsigned int k=0; k<itr->getDeg(); k++)
-    //     {
-    //         cout<<" "<<itr->connBlks[k];
-    //         outFile<<" "<<itr->connBlks[k];
-    //     }
-    //     cout<<endl;
-    //     outFile<<endl;
+    //     netLib[i].resetHPWL();
+    //     netLib[i].refreshHPWL(blkLib);
+    //     WL += netLib[i].getHPWL();
     // }
-    // outFile.close();
+
+    // cout<<"\n------Nets------"<<endl;
+    outFile<<"\n------Nets------"<<endl;
+    for (vector<Net>::iterator itr=netLib.begin(); itr!=netLib.end(); itr++)
+    {
+        // cout<<"NO."<<itr->getNum()<<" "<<itr->getDeg();
+        outFile<<"NO."<<itr->getNum()<<" "<<itr->getDeg();
+        for (unsigned int k=0; k<itr->getDeg(); k++)
+        {
+            // cout<<" "<<itr->connBlkIdxs[k];
+            outFile<<" "<<itr->connBlkIdxs[k];
+        }
+        itr->resetHPWL();
+        itr->refreshHPWL(blkLib);
+        WL += itr->getHPWL();
+        // cout<<" WL:"<<itr->getHPWL();
+        // outFile<<" WL:"<<itr->getHPWL();
+        // cout<<endl;
+        outFile<<endl;
+    }
+    cout<<"Init WL:"<<WL<<endl;
+    outFile<<"Init WL:"<<WL<<endl;
+
+    cost = getCost(Area, WL, alpha);
+    cout<<"Init Cost:"<<cost<<endl;
+    outFile<<"Init Cost:"<<cost<<endl;
+    
+    outFile.close();
+
+    //----------------================annealing================----------------
+    // cin.get();
+    // --------store previous properties before annealing--------
+    prevMax_h = max_h;
+    prevMax_w = max_w;
+    prevArea = Area;
+    prevWL = WL;
+    prevCost = cost;
+
+    long int tCount = 0;
+    while(T>Tfreez)
+    {
+        tCount++;
+        for (int i=0; i<movPerTemp; i++)
+        {
+            // --------randomly choose 2 blocks and swap--------
+            int pnChoice = rand() % 3; // 0:P 1:N 2+:PN
+            int blkChoice1 = rand() % blk_n;
+            int blkChoice2 = rand() % blk_n;
+            int seqChoiceP1 = blkLib[blkChoice1].pNum;
+            int seqChoiceP2 = blkLib[blkChoice2].pNum;
+            int seqChoiceN1 = blkLib[blkChoice1].nNum;
+            int seqChoiceN2 = blkLib[blkChoice2].nNum;
+
+            vector<int> swappedNetIdxs;
+            if (pnChoice==0)
+            {
+                int swapper = seqP[seqChoiceP1];
+                seqP[seqChoiceP1] = seqP[seqChoiceP2];
+                seqP[seqChoiceP2] = swapper;
+            }
+            else if (pnChoice==1)
+            {
+                int swapper = seqN[seqChoiceN1];
+                seqN[seqChoiceN1] = seqN[seqChoiceN2];
+                seqN[seqChoiceN2] = swapper;
+            }
+            else
+            {
+                int swapper = seqP[seqChoiceP1];
+                seqP[seqChoiceP1] = seqP[seqChoiceP2];
+                seqP[seqChoiceP2] = swapper;
+                swapper = seqN[seqChoiceN1];
+                seqN[seqChoiceN1] = seqN[seqChoiceN2];
+                seqN[seqChoiceN2] = swapper;
+            }
+            cout<<"SeqP/N:"<<pnChoice<<" ";
+            for (int i=0; i<blk_n; i++)
+            {
+                if (i==seqChoiceP1 || i==seqChoiceP2)
+                    cout<<"[";
+                else
+                    cout<<" ";
+                cout<<seqP[i];
+                if (i==seqChoiceP1 || i==seqChoiceP2)
+                    cout<<"]";
+                else
+                    cout<<" ";
+            }
+            cout<<"---";
+            for (int i=0; i<blk_n; i++)
+            {
+                if (i==seqChoiceN1 || i==seqChoiceN2)
+                    cout<<"[";
+                else
+                    cout<<" ";
+                cout<<seqN[i];
+                if (i==seqChoiceN1 || i==seqChoiceN2)
+                    cout<<"]";
+                else
+                    cout<<" ";
+            }
+            cout<<endl;
+
+
+            swappedNetIdxs.insert(swappedNetIdxs.end(), blkLib[blkChoice1].connNetIdxs.begin(), blkLib[blkChoice1].connNetIdxs.end());
+            swappedNetIdxs.insert(swappedNetIdxs.end(), blkLib[blkChoice2].connNetIdxs.begin(), blkLib[blkChoice2].connNetIdxs.end());
+
+            // --------run graph after swapping--------
+            cout<<">>blocks re-initializing"<<endl;
+            max_h = 0;
+            max_w = 0;
+            for (int i=0; i<blk_n; i++)
+            {
+                blkLib[i].resetState();
+            }
+            cout<<">>>Re-Plotting"<<endl;
+            plot(blkLib, blk_n, seqP, seqN, max_w, max_h);
+            
+            // --------generate new properties--------
+            Area = max_w * max_h;
+            cout<<max_w<<" x "<<max_h<<" = "<<Area<<endl;
+            for (int i=0; i<swappedNetIdxs.size(); i++)
+            {
+                netLib[swappedNetIdxs[i]].resetHPWL();
+                netLib[swappedNetIdxs[i]].refreshHPWL(blkLib);
+            }
+            WL=0;
+            for (int i=0; i<netLib.size(); i++)
+            {
+                WL += netLib[i].getHPWL();
+            }
+            cost = getCost(Area, WL, alpha);
+            cout<<"costs: "<<cost<<" - "<<prevCost<<endl;
+
+            bool accepted = acceptMove(cost-prevCost, T);
+            if (accepted)
+            {
+                prevMax_h = max_h;
+                prevMax_w = max_w;
+                prevArea = Area;
+                prevWL = WL;
+                prevCost = cost;
+                cout<<"--NO."<<tCount<<" T="<<T<<" "\
+                    <<"Op."<<i<<" swap:"<<blkChoice1<<","<<blkChoice2<<" "\
+                    <<"Accepted new Area:"<<Area<<"  WL:"<<WL<<endl;
+            }
+            // else
+            // {
+            //     cout<<"--NO."<<tCount<<" T="<<T<<" "\
+            //         <<"Op."<<i<<" swap:"<<blkChoice1<<","<<blkChoice2<<" "\
+            //         <<"rejected new Area:"<<Area<<"  WL:"<<WL<<endl;
+            // }
+            
+            // cin.get();
+        }
+        
+        T = coolDown(T);
+    }
+
 
     return 0;
 }
+
+
+
 
 int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib, int &blk_amt)
 {
@@ -189,7 +395,8 @@ int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib, int &blk_a
                 for (unsigned int j=0; j<newNet.getDeg(); j++)
                 {
                     iss >> numFrag;
-                    newNet.connBlks.push_back(numFrag);
+                    newNet.connBlkIdxs.push_back(numFrag);
+                    blkLib[numFrag].connNetIdxs.push_back(newNet.getNum());
                 }
                 
                 netLib.push_back(newNet);
@@ -205,25 +412,10 @@ int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib, int &blk_a
     return 0;
 }
 
-int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vector<unsigned int> &seqN, int &max_w, int &max_h)
+int plot(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vector<unsigned int> &seqN, int &max_w, int &max_h)
 {
-    for (int i=0; i<blk_amt; i++)
-    {
-        seqP.push_back(i);
-        seqN.push_back(i);
-    }
-
-    // ========random sequencing========
-    // NOTE: please uncomment the following code block to really implementing randomness
-    unsigned int seed = chrono::system_clock::now().time_since_epoch().count();
-    shuffle(seqP.begin(), seqP.end(), default_random_engine(seed));
-    seed = chrono::system_clock::now().time_since_epoch().count();
-    shuffle(seqN.begin(), seqN.end(), default_random_engine(seed));
-
-
-
     // ========storing relative position========
-    cout<<">>>storing relative position"<<endl;
+    // cout<<">>>storing relative position"<<endl;
     for (int idx=0; idx<blk_amt; idx++) // O(n)
     {
         blkLib[seqP[idx]].pNum = idx;
@@ -248,7 +440,7 @@ int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vec
 
 
     // ========finding critical path========
-    cout<<">>>finding critical path"<<endl;
+    // cout<<">>>finding critical path"<<endl;
     vector<Block*> topoQUp;
     vector<Block*> topoQRt;
     int timeStamp;
@@ -339,11 +531,13 @@ int randGen(vector<Block> &blkLib, int &blk_amt, vector<unsigned int> &seqP, vec
             }
         }
     }
-    cout<<">>>coord generated"<<endl;
+    // cout<<">>>coord generated"<<endl;
 
 
     // ========extracting max dimensions========
-    cout<<">>>extracting max dimensions"<<endl;
+    // cout<<">>>extracting max dimensions"<<endl;
+    // max_h=0;
+    // max_w=0;
     for (int i=0; i<blk_amt; i++)
     {
         if (blkLib[i].getLLx()+blkLib[i].getWidth() > max_w)
@@ -397,4 +591,38 @@ void DFSvisit(vector<Block> &blkLib, Block &targetBlk, int &timeStamp, vector<Bl
         Q.insert(Q.begin(), &targetBlk);
     }
     
+}
+
+double getCost(int Area, int WL, double alpha)
+{
+    double avgCost = alpha*(double)Area + (1.0-alpha)*(double)WL;
+    return avgCost;
+}
+
+bool acceptMove(int dCost, double T)
+{
+    if (dCost<0)
+    {
+        return true;
+    }
+    else
+    {
+        double Boltz = exp((-1)*dCost/(K*T));
+        double normRand = (double)rand()/(double)RAND_MAX;
+        if (normRand<Boltz)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+        
+    }
+    
+}
+
+double coolDown(double prevT)
+{
+    return 0.98*prevT;
 }
