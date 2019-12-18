@@ -7,6 +7,7 @@
 #include <vector>
 // #include <array>
 #include <algorithm> //for shuffle
+#include <random>
 #include <chrono> // sys time
 #include <math.h>
 #include <typeinfo>
@@ -17,7 +18,7 @@ using namespace std;
 #define def_K 0.95
 #define def_T0 40000.0
 #define def_Tfreez 0.1
-#define def_movPerTemp 100
+#define def_movPerTemp 10
 #define def_ALPHA 0.5
 
 int readFile(char* fName, vector<Block> &blkLib, vector<Net> &netLib, int &blk_amt);
@@ -35,8 +36,11 @@ int main(int argc, char* argv[])
     double movPerTemp = def_movPerTemp;
     double ALPHA = def_ALPHA;
     double alpha;
+    long int acceptNum=0;
+    long int rejectNum=0;
+    bool enableAccept = false;
 
-    if (argc<3 || argc>6)  
+    if (argc<3 || argc>7)  
     {
         int argNum = argc;
         cout<<"---->CRITICAL ERROR: 2 or 5 ARGs but get "<<argNum<<endl;
@@ -49,13 +53,20 @@ int main(int argc, char* argv[])
     else if (argc == 5)
     {
         K = stod(argv[3]);
-        ALPHA = stod(argv[5]);
+        ALPHA = stod(argv[4]);
     }
     else if (argc == 6)
     {
         K = stod(argv[3]);
         movPerTemp = stoi(argv[4]);
         ALPHA = stod(argv[5]);
+    }
+    else if (argc == 7)
+    {
+        K = stod(argv[3]);
+        movPerTemp = stoi(argv[4]);
+        ALPHA = stod(argv[5]);
+        enableAccept = (bool)argv[6];
     }
 
     if (((string)argv[2]!="-a") && ((string)argv[2]!="-w") && ((string)argv[2]!="-c") && ((string)argv[2]!="-h"))
@@ -83,6 +94,7 @@ int main(int argc, char* argv[])
             <<" 2) $> [program] [inFile] [mode] [alpha]\n"\
             <<" 3) $> [program] [inFile] [mode] [K] [alpha]\n"\
             <<" 4) $> [program] [inFile] [mode] [K] [MpT] [alpha]\n"\
+            <<" 4) $> [program] [inFile] [mode] [K] [MpT] [alpha] [enable]\n"\
             <<endl;
         return 0;
         break;
@@ -135,6 +147,7 @@ int main(int argc, char* argv[])
     string outputName = inputName.substr(0, inputName.size()-3) +"_Li_Chengzhe.out" + argv[2][1];
     // cout<<">>>Opening output file: "<<outputName<<endl;
     ofstream outFile(outputName);
+    ofstream intermedData(inputName.substr(0, inputName.size()-3)+"-"+argv[2][1]+".csv");
     // --------call out sequence values--------
     // cout<<"Init P seq: ";
     // outFile<<"Init P seq: ";
@@ -215,6 +228,12 @@ int main(int argc, char* argv[])
     prevCost = cost;
 
     long int tCount = 0;
+    if (enableAccept)
+    {
+        intermedData<<"tCount,Temp,"\
+            <<"#Op,RjctAcpt,swap1,swap2,"\
+            <<"Area,WL,\n";
+    }
     while(T>Tfreez)
     {
         tCount++;
@@ -318,17 +337,31 @@ int main(int argc, char* argv[])
                 prevArea = Area;
                 prevWL = WL;
                 prevCost = cost;
-                // cout<<"--NO."<<tCount<<" T="<<T<<" "\
-                //     <<"Op."<<i<<" swap:"<<blkChoice1<<","<<blkChoice2<<" "\
-                //     <<"\n  Accepted new Area:"<<Area<<"  WL:"<<WL\
-                //     <<"  costs: "<<cost<<" - "<<prevCost<<endl;
+                acceptNum++;
+                if (enableAccept)
+                {
+                    cout<<"--NO."<<tCount<<" T="<<T<<" "\
+                        <<"Op."<<i<<" swap:"<<blkChoice1<<","<<blkChoice2<<" "\
+                        <<"\n  Accepted new Area:"<<Area<<"  WL:"<<WL\
+                        <<"  costs: "<<cost<<" - "<<prevCost<<endl;
+                    intermedData<<tCount<<","<<T<<","\
+                        <<i<<","<<"accept,"<<blkChoice1<<","<<blkChoice2<<","\
+                        <<Area<<","<<WL<<",\n";
+                }
             }
-            // else
-            // {
-            //     cout<<"--NO."<<tCount<<" T="<<T<<" "\
-            //         <<"Op."<<i<<" swap:"<<blkChoice1<<","<<blkChoice2<<" "\
-            //         <<"rejected new Area:"<<Area<<"  WL:"<<WL<<endl;
-            // }
+            else
+            {
+                rejectNum++;
+                if (enableAccept)
+                {
+                    cout<<"--NO."<<tCount<<" T="<<T<<" "\
+                        <<"Op."<<i<<" swap:"<<blkChoice1<<","<<blkChoice2<<" "\
+                        <<"rejected new Area:"<<Area<<"  WL:"<<WL<<endl;
+                    intermedData<<tCount<<","<<T<<","\
+                        <<i<<","<<"reject,"<<blkChoice1<<","<<blkChoice2<<","\
+                        <<Area<<","<<WL<<",\n";
+                }
+            }
             
             // cin.get();
         }
@@ -366,6 +399,7 @@ int main(int argc, char* argv[])
         <<endl;
 
     outFile.close();
+    intermedData.close();
     return 0;
 }
 
